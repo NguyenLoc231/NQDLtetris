@@ -8,6 +8,7 @@ public class GameOverState implements GameState {
     @Override
     public void enter(GameEngine engine) {
         // No-op.
+        engine.getSoundManager().stopBackgroundMusic();
     }
 
     @Override

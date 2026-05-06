@@ -14,6 +14,8 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+
+
 /**
  * Context in State Pattern. Holds current state and delegates behavior to it.
  */
@@ -33,6 +35,8 @@ public class GameEngine {
     private final GameState playingState;
     private final GameState pausedState;
     private final GameState gameOverState;
+    //sounds
+    private SoundManager soundManager;
 
     private GameState currentState;
     private Tetromino currentTetromino;
@@ -142,6 +146,10 @@ public class GameEngine {
     }
 
     public GameEngine() {
+        //sound
+        this.soundManager = new SoundManager();
+
+
         this.board = new Board();
         this.tetrominoFactory = new TetrominoFactory();
 
@@ -312,8 +320,9 @@ public class GameEngine {
         int nextY = currentTetromino.getY() + 1;
         if (board.checkCollision(currentTetromino.getX(), nextY, currentTetromino.getShapeRef())) {
             board.lock(currentTetromino);
-
+            soundManager.playHardDrop();  
             // Detect full lines first and play animation if any.
+            
             int[] fullLines = board.getFullLines();
             if (fullLines != null && fullLines.length > 0) {
                 // Start line clear animation and postpone removal/spawn until it's done.
@@ -327,6 +336,7 @@ public class GameEngine {
             totalClearedLines += cleared;
             score += calculateScore(cleared);
             return spawnRandomTetromino();
+            
         }
 
         currentTetromino.setPosition(currentTetromino.getX(), nextY);
@@ -346,6 +356,7 @@ public class GameEngine {
         int ghostY = getGhostY();
         currentTetromino.setPosition(currentTetromino.getX(), ghostY);
         board.lock(currentTetromino);
+        soundManager.playHardDrop(); 
         int[] fullLines = board.getFullLines();
         if (fullLines != null && fullLines.length > 0) {
             // Faster, snappier animation when lines are cleared by hard drop
@@ -383,7 +394,12 @@ public class GameEngine {
         )) {
             // Revert if rotation collides.
             currentTetromino.rotateCounterClockwise();
+            
         }
+        else {
+            soundManager.playRotate();
+        }
+
     }
 
     public boolean holdCurrentPiece() {
@@ -396,6 +412,7 @@ public class GameEngine {
         if (heldTetromino == null) {
             heldTetromino = tetrominoFactory.createFrom(currentTetromino, 0, 0);
             setHeldTetrominoType(currentType);
+            soundManager.playHold(); 
             return spawnRandomTetromino();
         }
 
@@ -428,6 +445,7 @@ public class GameEngine {
         // Start a brief flash animation showing where the swapped piece will land,
         // then commit the swap when the animation completes.
         startSwapAnimation(swapped, newHeld);
+        soundManager.playHold();
         return false;
     }
 
@@ -506,9 +524,15 @@ public class GameEngine {
         currentTetromino = tetrominoFactory.create(toSpawn);
         // prepare next piece and notify listeners
         nextTetrominoType = tetrominoFactory.randomType();
+        
         notifyNextPieceChanged(nextTetrominoType);
         // unlimited holds: no per-turn reset necessary
+        if (board.checkCollision(currentTetromino.getX(), currentTetromino.getY(), currentTetromino.getShapeRef())) {
+        soundManager.playGameOver();   
+        return true;
+        }
         return board.checkCollision(currentTetromino.getX(), currentTetromino.getY(), currentTetromino.getShapeRef());
+        
     }
 
     private boolean spawnTetrominoOfType(TetrominoFactory.TetrominoType type) {
@@ -572,7 +596,8 @@ public class GameEngine {
         // Remove the rows from the board and clear pending markers
         board.removeLines(linesToClear);
         board.clearPendingClearRows();
-
+//sound
+        soundManager.playLineClear();
         // Reset animation state
         lineClearAnimating = false;
         lineClearElapsedNs = 0L;
@@ -584,7 +609,9 @@ public class GameEngine {
         // Spawn next piece and handle game over
         boolean gameOver = spawnRandomTetromino();
         if (gameOver) {
+            
             changeState(gameOverState);
+
         }
     }
 
@@ -628,4 +655,7 @@ public class GameEngine {
         long period = SWAP_FLASH_PERIOD_NS > 0 ? SWAP_FLASH_PERIOD_NS : LINE_CLEAR_FLASH_PERIOD_NS;
         return ((swapElapsedNs / period) % 2) == 0;
     }
+    public SoundManager getSoundManager() {
+    return soundManager;
+}
 }

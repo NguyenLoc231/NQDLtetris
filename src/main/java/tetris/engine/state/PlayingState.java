@@ -8,11 +8,13 @@ public class PlayingState implements GameState {
     @Override
     public void enter(GameEngine engine) {
         // Spawn first piece through update loop.
+        engine.getSoundManager().startBackgroundMusic();
     }
 
     @Override
     public void exit(GameEngine engine) {
         // No-op.
+        engine.getSoundManager().stopBackgroundMusic();
     }
 
     @Override

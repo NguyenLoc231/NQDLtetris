@@ -153,19 +153,34 @@ public class Board {
      * Remove the specified rows from the board. Rows array may be in any order.
      * Removal is performed from bottom to top so indices remain valid.
      */
-    public void removeLines(int[] rows) {
-        if (rows == null || rows.length == 0) {
-            return;
-        }
-        java.util.Arrays.sort(rows);
-        for (int i = rows.length - 1; i >= 0; i--) {
-            int row = rows[i];
-            if (row < 0 || row >= ROWS) {
-                continue;
-            }
-            removeLine(row);
+public void removeLines(int[] rows) {
+    if (rows == null || rows.length == 0) {
+        return;
+    }
+
+    // check all lines need to remove
+    boolean[] toRemove = new boolean[ROWS];
+    for (int r : rows) {
+        if (r >= 0 && r < ROWS) {
+            toRemove[r] = true;
         }
     }
+
+    // push the others down
+    int writeRow = ROWS - 1;
+    for (int readRow = ROWS - 1; readRow >= 0; readRow--) {
+        if (!toRemove[readRow]) {
+            grid[writeRow] = grid[readRow].clone();
+            writeRow--;
+        }
+    }
+
+    // set to 0 (lines)
+    while (writeRow >= 0) {
+        Arrays.fill(grid[writeRow], 0);
+        writeRow--;
+    }
+}
 
     public void setPendingClearRows(int[] rows, int colorIndex) {
         setPendingClearRows(rows, colorIndex, DEFAULT_PENDING_CLEAR_FLASH_NS);
