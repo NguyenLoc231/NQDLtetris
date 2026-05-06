@@ -1,245 +1,102 @@
-# Bao Cao Co Che Game Tetris
-
-## 1) Tong quan kien truc
-
-Game duoc to chuc theo huong tach 3 lop:
-
-- `model`: du lieu game (`Board`, `Tetromino`, `TetrominoFactory`)
-- `engine`: logic va state machine (`GameEngine`, cac `GameState`)
-- `ui`: JavaFX render + input (`TetrisFxAppExample`, `BoardRenderer`, `HoldPanelRenderer`)
-
-Muc tieu cua cach tach lop:
-
-- Model khong phu thuoc UI
-- Engine khong phu thuoc JavaFX
-- UI chi lam viec hien thi va chuyen input thanh `GameAction`
-
-## 2) Vong doi chay game
-
-### 2.1 Khoi tao
-
-Trong `TetrisFxAppExample`:
-
-1. Tao `GameEngine`
-2. Tao renderer (`BoardRenderer`) va panel hold/next (`HoldPanelRenderer`)
-3. Dang ky listener hold/next vao engine
-4. Hien overlay chon ngon ngu
-5. Sau khi chon ngon ngu -> hien overlay chon level
-6. Khi chon level:
-   - set level
-   - reset game
-   - chuyen state sang `PLAYING`
-   - start game loop (`engine.start(renderer)`)
-   - start input loop (`startInputLoop()`)
-
-### 2.2 Game loop chinh (engine)
-
-`GameEngine` dung `AnimationTimer` voi 2 accumulator:
-
-- `updateAccumulatorNs`: tich luy de goi `update()` theo toc do roi
-- `renderAccumulatorNs`: tich luy de render gan 60 FPS
-
-Tinh nang:
-
-- Toc do roi tang theo level (`updateIntervalNs` giam dan)
-- Khoa input/update trong luc dang animation clear line hoac swap hold
-- Ho tro overlay menu/pause/game over qua `GameRenderer`
-
-## 3) State machine
-
-Game dung State Pattern, gom 4 state:
-
-- `MenuState`
-- `PlayingState`
-- `PausedState`
-- `GameOverState`
-
-### 3.1 Chuyen state
-
-- `Menu -> Playing`: nhan `START`
-- `Playing -> Paused`: nhan `PAUSE`
-- `Paused -> Playing`: nhan `RESUME`
-- `Paused/GameOver -> Playing`: nhan `RESTART` (reset game truoc)
-- `Playing -> GameOver`: spawn piece moi bi collision
-- `Paused/GameOver -> Menu`: `BACK_TO_MENU`
-
-Muc dich:
-
-- Moi state chi xu ly nhung input hop le cho man hinh hien tai
-- Logic gameplay khong bi chay khi dang pause/menu/game over
-
-## 4) Co che model
-
-## 4.1 Board
-
-`Board` la ma tran `20 x 10`:
-
-- `grid[row][col] = 0` la o trong
-- `1..7` la id mau cua tetromino da lock
-
-Ham chinh:
-
-- `checkCollision(...)`: va cham tuong trai/phai, day, block da lock
-- `lock(tetromino)`: ghi piece vao `grid`
-- `getFullLines()`: tim cac hang day
-- `removeLines(rows)`: xoa nhieu hang (tu duoi len)
-- pending clear API:
-  - `setPendingClearRows(...)`
-  - `clearPendingClearRows()`
-  - phuc vu animation flash truoc khi xoa that
-
-## 4.2 Tetromino va Factory
-
-- `Tetromino` luu vi tri `(x, y)`, `shape`, `id`
-- Ho tro xoay xuoi/nguoc chieu kim dong ho
-- `TetrominoFactory`:
-  - tao piece moi theo type
-  - random type
-  - map `id <-> TetrominoType`
-  - `createFrom(...)` de copy piece (giu nguyen huong xoay), dung cho hold/swap
-
-## 5) Gameplay logic chi tiet
-
-## 5.1 Roi xuong va khoa khoi
-
-Trong `PlayingState.update()` goi `engine.stepDown()`:
-
-1. Neu chua co piece hien tai -> spawn piece
-2. Thu dich y + 1
-3. Neu collision:
-   - lock piece vao board
-   - neu co hang day: bat dau animation clear
-   - neu khong: clear line ngay, tinh diem, spawn piece tiep
-4. Neu khong collision: cap nhat vi tri piece
-
-## 5.2 Hard drop
-
-Khi nhan `HARD_DROP`:
-
-1. Tinh `ghostY` (vi tri roi sau cung hop le)
-2. Dua piece den `ghostY`
-3. Lock piece
-4. Neu co line clear -> dung animation nhanh hon
-5. Neu khong co line clear -> spawn piece moi
-
-## 5.3 Hold / Swap
-
-Khi nhan `HOLD`:
-
-- Neu chua co hold:
-  - copy piece hien tai vao hold
-  - spawn piece tiep theo
-- Neu da co hold:
-  - tao `swapped` tu hold tai vi tri piece hien tai
-  - tao `newHeld` tu piece hien tai
-  - check collision cho `swapped`, thu kick ngang/doc nhe
-  - neu van collision: huy swap
-  - neu hop le: bat dau swap flash animation, ket thuc moi commit swap
-
-Luu y: co che hold hien tai la unlimited hold.
-
-## 5.4 Ghost piece
-
-`getGhostY()` mo phong roi thang den vi tri sau cung khong collision.
-Renderer ve piece bong mo (opacity thap) de goi y vi tri dat.
-
-## 5.5 Animation clear line
-
-Khi co line day:
-
-1. Danh dau `pendingClearRows`
-2. BoardRenderer flash vang/do theo chu ky
-3. Het thoi gian animation:
-   - xoa line that (`removeLines`)
-   - clear pending marker
-   - cong diem + tong so line
-   - spawn piece moi
-   - neu spawn collision -> `GameOverState`
-
-## 6) Input system
-
-UI tach input thanh 2 nhom:
-
-- One-shot (xu ly ngay khi key down): `ENTER`, `UP`, `SPACE`, `P`, `C`, `H`, `R`, `ESC`
-- Hold-to-repeat: `LEFT`, `RIGHT`, `DOWN` qua `startInputLoop()`
-
-Co che hold-to-repeat:
-
-- Delay luc dau (`MOVE_INITIAL_DELAY_NS`)
-- Lap lai theo chu ky (`MOVE_REPEAT_NS`, `SOFT_DROP_REPEAT_NS`)
-- Neu tao input loop moi, timer cu duoc stop truoc de tranh duplicate input
-
-## 7) Render va giao dien
-
-## 7.1 BoardRenderer
-
-Render cac lop:
-
-1. Nen va grid
-2. Block da lock
-3. Overlay flashing line clear (neu co)
-4. Swap flash tetromino (neu co)
-5. Ghost tetromino
-6. Active tetromino
-7. Overlay panel (menu/pause/game over)
-
-## 7.2 HoldPanelRenderer
-
-Panel ben phai ve:
-
-- `NEXT` preview
-- `HOLD` preview
-
-Cap nhat qua listener:
-
-- `onNextPieceChanged(...)`
-- `onHoldPieceChanged(...)`
-
-## 7.3 Overlay trong UI
-
-Ngoai overlay do state render (`BoardRenderer.drawOverlay`), UI con co:
-
-- Language overlay
-- Level overlay
-- Help overlay
-- Pause overlay
-
-Nhung overlay nay la JavaFX node tren `StackPane`, co the show/hide linh hoat.
-
-## 8) Tinh diem va level
-
-## 8.1 Diem
-
-`calculateScore(clearedLines)`:
-
-- 1 line -> 100
-- 2 lines -> 300
-- 3 lines -> 500
-- 4 lines -> 800
-
-## 8.2 Level va toc do
-
-- Level toi da: 10
-- Cong thuc toc do:
-  - `updateInterval = base / (LEVEL_SPEED_FACTOR^(level-1))`
-- Nghia la level tang thi piece roi nhanh hon
-
-## 9) Cac diem mo rong de phat trien tiep
-
-- Them test cho collision, clear line, hold/swap, transition state
-- Them SRS wall-kick day du cho rotate
-- Them lock delay, combo, back-to-back, T-spin
-- Them save high score va profile nguoi choi
-- Dong bo text da ngon ngu hoa cho toan bo label UI
-
-## 10) Ket luan
-
-Game hien tai da co day du co che co ban va nang cao:
-
-- state machine ro rang
-- next/hold preview
-- hard drop + ghost piece
-- clear line animation
-- pause/menu/game over overlays
-
-Kien truc tach model-engine-ui giup de bao tri, de test va de mo rong tinh nang trong cac buoc tiep theo.
+# BÁO CÁO CƠ CHẾ GAME TETRIS / TETRIS GAME MECHANISM REPORT
+
+## 1) Tổng quan kiến trúc / Architecture Overview
+**[VN]** Game được tổ chức theo hướng tách 3 lớp (MVC):
+- `model`: Dữ liệu game (`Board`, `Tetromino`, `TetrominoFactory`)
+- `engine`: Logic và State Machine (`GameEngine`, các `GameState`)
+- `ui`: Trình xuất hình ảnh (Render) và xử lý đầu vào (Input) bằng JavaFX (`TetrisFxAppExample`, `BoardRenderer`, `HoldPanelRenderer`)
+*Mục tiêu:* Model không phụ thuộc UI; Engine không phụ thuộc JavaFX; UI chỉ làm việc hiển thị và chuyển input thành `GameAction`.
+
+**[EN]** The game is structured into 3 distinct layers (MVC):
+- `model`: Game data (`Board`, `Tetromino`, `TetrominoFactory`)
+- `engine`: Logic and State Machine (`GameEngine`, `GameState` classes)
+- `ui`: JavaFX rendering and input handling (`TetrisFxAppExample`, `BoardRenderer`, `HoldPanelRenderer`)
+*Objective:* The Model is UI-independent; the Engine is JavaFX-independent; the UI strictly handles rendering and mapping inputs to `GameAction`.
+
+## 2) Vòng đời chạy game / Game Lifecycle
+
+### 2.1 Khởi tạo / Initialization
+**[VN]** 
+1. Tạo `GameEngine`, `BoardRenderer`, và `HoldPanelRenderer`.
+2. Đăng ký listener (bộ lắng nghe) cho khối gạch Hold/Next vào Engine.
+3. Hiển thị Overlay chọn ngôn ngữ -> Chọn Level.
+4. Khi chọn Level: Set level, reset game, chuyển state sang `PLAYING`, bắt đầu Game Loop và Input Loop.
+
+**[EN]** 
+1. Initialize `GameEngine`, `BoardRenderer`, and `HoldPanelRenderer`.
+2. Register Hold/Next piece listeners to the engine.
+3. Display Language Selection Overlay -> Level Selection Overlay.
+4. Upon Level selection: Set level, reset game, transition to `PLAYING` state, start Game Loop and Input Loop.
+
+### 2.2 Game loop chính / Main Game Loop (Engine)
+**[VN]** `GameEngine` dùng `AnimationTimer` với 2 bộ tích lũy (accumulator):
+- `updateAccumulatorNs`: Tích lũy để gọi `update()` theo tốc độ rơi.
+- `renderAccumulatorNs`: Tích lũy để render ở mức ~60 FPS.
+*Tính năng:* Tốc độ rơi tăng theo level; Khóa input/update khi đang có hiệu ứng (animation) xóa hàng hoặc đổi gạch (swap hold).
+
+**[EN]** `GameEngine` utilizes `AnimationTimer` with 2 accumulators:
+- `updateAccumulatorNs`: Accumulates time to call `update()` based on falling speed.
+- `renderAccumulatorNs`: Accumulates time to render at ~60 FPS.
+*Features:* Falling speed increases with level; Input/update is locked during line clear or hold swap animations.
+
+## 3) State Machine
+**[VN]** Game sử dụng State Pattern với 4 trạng thái: `MenuState`, `PlayingState`, `PausedState`, `GameOverState`.
+Mỗi state chỉ xử lý những input hợp lệ cho màn hình hiện tại, đảm bảo logic gameplay không chạy ngầm khi đang Pause/Menu/Game Over.
+
+**[EN]** The game implements the State Pattern with 4 states: `MenuState`, `PlayingState`, `PausedState`, `GameOverState`.
+Each state only processes valid inputs for the current screen, ensuring gameplay logic is halted during Pause/Menu/Game Over.
+
+## 4) Cơ chế Model / Model Mechanisms
+
+### 4.1 Lưới trò chơi (Board)
+**[VN]** Là ma trận `20 x 10` (`grid[row][col]`). Số 0 là ô trống, 1..7 là ID màu của block đã khóa (locked). Xử lý va chạm (`checkCollision`), khóa gạch (`lock`), và xóa hàng (`removeLines`). Hỗ trợ API cho hiệu ứng chớp nháy trước khi xóa thật (`pendingClearRows`).
+
+**[EN]** A `20 x 10` matrix (`grid[row][col]`). 0 represents an empty cell, 1..7 are color IDs of locked blocks. Handles collisions (`checkCollision`), piece locking (`lock`), and line clearing (`removeLines`). Supports APIs for pre-clear flash animations (`pendingClearRows`).
+
+### 4.2 Tetromino & Factory
+**[VN]** Lớp `TetrominoFactory` tạo ngẫu nhiên khối gạch mới, map ID với `TetrominoType`, và copy gạch để phục vụ tính năng Hold/Swap.
+
+**[EN]** `TetrominoFactory` generates random new pieces, maps IDs to `TetrominoType`, and copies pieces to support the Hold/Swap feature.
+
+## 5) Gameplay Logic / Detailed Gameplay Logic
+**[VN]** 
+- **Rơi & Khóa:** Di chuyển khối gạch xuống (y+1). Nếu va chạm, khóa khối gạch. Nếu có hàng đầy, chạy animation xóa; nếu không, xóa tức thì, cộng điểm và tạo gạch mới.
+- **Hard Drop:** Đưa gạch đến vị trí rơi hợp lệ cuối cùng (`ghostY`) và khóa ngay lập tức.
+- **Hold/Swap:** Hỗ trợ lưu khối gạch hiện tại và tráo đổi (swap) không giới hạn số lần.
+- **Ghost Piece:** Vẽ khối gạch bóng mờ để gợi ý vị trí rơi.
+
+**[EN]** 
+- **Fall & Lock:** Moves the piece down (y+1). On collision, the piece is locked. Triggers clear animation if lines are full; otherwise, clears immediately, adds score, and spawns a new piece.
+- **Hard Drop:** Drops the piece to the lowest valid position (`ghostY`) and locks it instantly.
+- **Hold/Swap:** Supports saving the current piece and unlimited swapping.
+- **Ghost Piece:** Renders a semi-transparent piece to indicate the drop location.
+
+## 6) Hệ thống Input / Input System
+**[VN]** Chia làm 2 nhóm: One-shot (bấm 1 lần: Enter, Up, Space, P, C...) và Hold-to-repeat (nhấn giữ: Left, Right, Down). Cơ chế giữ phím có độ trễ ban đầu và lặp lại theo chu kỳ để thao tác mượt mà.
+
+**[EN]** Divided into 2 groups: One-shot (single press: Enter, Up, Space, P, C...) and Hold-to-repeat (press & hold: Left, Right, Down). The hold mechanism features an initial delay and cyclic repetition for smooth operation.
+
+## 7) Hệ thống hiển thị / Rendering System
+**[VN]** 
+- `BoardRenderer`: Vẽ lưới, gạch đã khóa, gạch đang rơi, ghost piece và các hiệu ứng chớp nháy (swap/clear line).
+- `HoldPanelRenderer`: Vẽ bảng dự đoán (Next) và gạch đang giữ (Hold).
+- Giao diện người dùng (UI Overlay): Dùng `StackPane` của JavaFX để hiển thị linh hoạt các màn hình chọn Ngôn ngữ, Cấp độ, Hướng dẫn và Tạm dừng.
+
+**[EN]** 
+- `BoardRenderer`: Renders the grid, locked pieces, active piece, ghost piece, and flash animations.
+- `HoldPanelRenderer`: Renders the Next preview and Hold piece panels.
+- UI Overlay: Utilizes JavaFX `StackPane` to flexibly toggle Language, Level, Help, and Pause screens.
+
+## 8) Tính điểm & Cấp độ / Scoring & Levels
+**[VN]** 
+- Điểm: 1 hàng (100), 2 hàng (300), 3 hàng (500), 4 hàng (800).
+- Level: Tối đa level 10. Tốc độ rơi tăng dần theo cấp số nhân dựa trên level hiện tại.
+
+**[EN]** 
+- Scoring: 1 line (100), 2 lines (300), 3 lines (500), 4 lines (800).
+- Levels: Maximum level 10. Falling speed increases exponentially based on the current level.
+
+## 9) Hướng phát triển / Future Extensions
+**[VN]** Thêm Wall-kick (SRS) cho xoay gạch; Lock delay, Combo, T-spin; Lưu điểm cao (High score) và đa ngôn ngữ toàn diện.
+
+**[EN]** Implement full SRS Wall-kick for rotation; Lock delay, Combos, T-spins; Save High scores and full comprehensive multi-language support.
