@@ -60,6 +60,7 @@ public class TetrisFxAppExample extends Application {
     private StackPane languageOverlay;
     private StackPane levelOverlay;
     private StackPane pauseOverlay;
+    private StackPane exitConfirmOverlay;
 
     @Override
     public void start(Stage stage) {
@@ -197,9 +198,13 @@ public class TetrisFxAppExample extends Application {
             KeyCode code = event.getCode();
             boolean firstPress = pressedKeys.add(code);
 
-            // Ignore input until language or level overlay is selected
-            if ((languageOverlay != null && languageOverlay.isVisible()) || (levelOverlay != null && levelOverlay.isVisible())) {
-                return;
+            if (code != KeyCode.ESCAPE) {
+                if (languageOverlay != null && languageOverlay.isVisible()) {
+                    return;
+                }
+                if (levelOverlay != null && levelOverlay.isVisible()) {
+                    return;
+                }
             }
 
             // If pause overlay is visible, only accept resume/restart/escape keys
@@ -258,6 +263,24 @@ public class TetrisFxAppExample extends Application {
                     }
                     break;
                 case ESCAPE:
+                    // Nếu đang ở màn chọn level → về màn chọn ngôn ngữ
+                    if (levelOverlay != null && levelOverlay.isVisible()) {
+                        rootStack.getChildren().remove(levelOverlay);
+                        levelOverlay.setVisible(false);
+                        // Hiện lại màn chọn ngôn ngữ
+                        if (!rootStack.getChildren().contains(languageOverlay)) {
+                            rootStack.getChildren().add(languageOverlay);
+                        }
+                        languageOverlay.setVisible(true);
+                        break;
+                    }
+                    // Nếu đang ở màn chọn ngôn ngữ → thoát game
+                    if (languageOverlay != null && languageOverlay.isVisible()) {
+                        if (exitConfirmOverlay == null) buildExitConfirmOverlay(rootStack);
+                        languageOverlay.setVisible(false);
+                        exitConfirmOverlay.setVisible(true);
+                        break;
+                    }
                     if (pauseOverlay != null && pauseOverlay.isVisible()) {
                         pauseOverlay.setVisible(false);
                         if (rootStack.getChildren().contains(pauseOverlay)) rootStack.getChildren().remove(pauseOverlay);
@@ -662,5 +685,50 @@ public class TetrisFxAppExample extends Application {
         for (double x = 0; x < w + h; x += spacing) {
             gc.strokeLine(x, 0, x - h, h);
         }
+    }
+
+    private void buildExitConfirmOverlay(StackPane rootStack) {
+        exitConfirmOverlay = new StackPane();
+        exitConfirmOverlay.setAlignment(Pos.CENTER);
+
+        VBox box = new VBox(16);
+        box.setAlignment(Pos.CENTER);
+        box.setPadding(new Insets(24));
+        box.setStyle("-fx-background-color: linear-gradient(from 0% 0% to 0% 100%, rgba(0,0,0,0.9), rgba(43,11,68,0.75)); -fx-background-radius: 8; -fx-border-color: #4B0082; -fx-border-width: 1; -fx-border-radius: 8;");
+
+        String msg  = (engine.getLanguage() == GameEngine.Language.VI) ? "Bạn có muốn thoát game?" : "Do you want to quit?";
+        String yes  = (engine.getLanguage() == GameEngine.Language.VI) ? "Thoát" : "Quit";
+        String no   = (engine.getLanguage() == GameEngine.Language.VI) ? "Hủy"  : "Cancel";
+
+        Label msgLabel = new Label(msg);
+        msgLabel.setFont(Font.font("Fredoka One", 18));
+        msgLabel.setTextFill(Color.WHITE);
+        msgLabel.setEffect(new DropShadow(6, Color.web("#4B0082", 0.85)));
+
+        Button yesBtn = new Button(yes);
+        yesBtn.setStyle("-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-background-radius: 6; -fx-padding: 8 24;");
+        yesBtn.setOnMouseEntered(e -> yesBtn.setStyle("-fx-background-color: #c0392b; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-background-radius: 6; -fx-padding: 8 24;"));
+        yesBtn.setOnMouseExited(e  -> yesBtn.setStyle("-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-background-radius: 6; -fx-padding: 8 24;"));
+        yesBtn.setOnAction(e -> javafx.application.Platform.exit());
+
+        Button noBtn = new Button(no);
+        noBtn.setStyle("-fx-background-color: #555; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-background-radius: 6; -fx-padding: 8 24;");
+        noBtn.setOnMouseEntered(e -> noBtn.setStyle("-fx-background-color: #333; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-background-radius: 6; -fx-padding: 8 24;"));
+        noBtn.setOnMouseExited(e  -> noBtn.setStyle("-fx-background-color: #555; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-background-radius: 6; -fx-padding: 8 24;"));
+        noBtn.setOnAction(e -> {
+            exitConfirmOverlay.setVisible(false);
+            languageOverlay.setVisible(true);
+        });
+
+        HBox btnRow = new HBox(16, yesBtn, noBtn);
+        btnRow.setAlignment(Pos.CENTER);
+
+        box.getChildren().addAll(msgLabel, btnRow);
+        exitConfirmOverlay.getChildren().add(box);
+        exitConfirmOverlay.setVisible(false);
+
+        exitConfirmOverlay.prefWidthProperty().bind(rootStack.widthProperty());
+        exitConfirmOverlay.prefHeightProperty().bind(rootStack.heightProperty());
+        rootStack.getChildren().add(exitConfirmOverlay);
     }
 }
