@@ -20,10 +20,15 @@ public class SoundManager {
     private AudioClip gameOverSound;
     private AudioClip holdSound;
 
-    private MediaPlayer backgroundMusic;
     private boolean soundEnabled = true;
 
     private static final int POOL_SIZE = 3;   // Số lượng bản sao cho mỗi âm thanh
+
+    // Background music tracks
+    private MediaPlayer menuMusic;
+    private MediaPlayer gameplayLowMusic;   // lv1-6 (loop)
+    private MediaPlayer gameplayHighP1;     // lv7-10 part 1 (no loop -> auto to p2)
+    private MediaPlayer gameplayHighP2;     // lv7-10 part 2 (loop)
 
     public SoundManager() {
         try {
@@ -38,7 +43,7 @@ public class SoundManager {
 
             lineClearSound = loadAudioClip("/sounds/delete line.wav");
             gameOverSound  = loadAudioClip("/sounds/gameover.wav");
-            holdSound      = loadAudioClip("/sounds/rotation.wav");  // Dùng chung file với rotate nếu muốn, hoặc đổi sang file riêng
+            holdSound      = loadAudioClip("/sounds/rotation.wav");
         } catch (Exception e) {
             System.err.println("Cannot load sound effects: " + e.getMessage());
             soundEnabled = false;
@@ -48,18 +53,47 @@ public class SoundManager {
             System.out.println("SoundManager: All sounds loaded successfully.");
         }
 
-        // Nhạc nền
+        // Nhạc nền menu và màn hình phụ
+        menuMusic = createMediaPlayer("/sounds/backgroundmusic.wav", true);
+        // Nhạc nền gameplay lv1-6
+        gameplayLowMusic = createMediaPlayer("/sounds/backgroundmusic_lv1_lv6.wav", true);
+        // Nhạc nền gameplay lv7-10 (2 phần)
+        gameplayHighP1 = createMediaPlayer("/sounds/backgroundmusic_lv7_lv10_p1.wav", false);
+        gameplayHighP2 = createMediaPlayer("/sounds/backgroundmusic_lv7_lv10_p2.wav", true);
+
+        // Khi p1 phát xong -> tự động chuyển sang p2
+        if (gameplayHighP1 != null) {
+            gameplayHighP1.setOnEndOfMedia(() -> {
+                if (soundEnabled && gameplayHighP1 != null) {
+                    gameplayHighP1.stop();
+                    gameplayHighP1.seek(javafx.util.Duration.ZERO);
+                }
+                if (gameplayHighP2 != null && soundEnabled) {
+                    gameplayHighP2.seek(javafx.util.Duration.ZERO);
+                    gameplayHighP2.play();
+                }
+            });
+        }
+    }
+
+    private MediaPlayer createMediaPlayer(String path, boolean loop) {
         try {
-            URL musicUrl = getClass().getResource("/sounds/backgroundmusic.wav");
-            if (musicUrl != null) {
-                Media media = new Media(musicUrl.toExternalForm());
-                backgroundMusic = new MediaPlayer(media);
-                backgroundMusic.setCycleCount(MediaPlayer.INDEFINITE);
-                backgroundMusic.setVolume(0.3);
-                System.out.println("Background music loaded.");
+            URL url = getClass().getResource(path);
+            if (url == null) {
+                System.err.println("Music file not found: " + path);
+                return null;
             }
+            Media media = new Media(url.toExternalForm());
+            MediaPlayer player = new MediaPlayer(media);
+            if (loop) {
+                player.setCycleCount(MediaPlayer.INDEFINITE);
+            }
+            player.setVolume(0.3);
+            System.out.println("Loaded music: " + path);
+            return player;
         } catch (Exception e) {
-            System.err.println("Cannot load background music: " + e.getMessage());
+            System.err.println("Cannot load music: " + path + " - " + e.getMessage());
+            return null;
         }
     }
 
@@ -101,22 +135,64 @@ public class SoundManager {
         }
     }
 
-    // Nhạc nền
-    public void startBackgroundMusic() {
-        if (backgroundMusic != null && soundEnabled) {
-            backgroundMusic.play();
+    /**
+     * Phát nhạc nền cho menu / paused / game over / overlay screens.
+     */
+    public void playMenuMusic() {
+        stopAllBackgroundMusic();
+        if (menuMusic != null && soundEnabled) {
+            menuMusic.seek(javafx.util.Duration.ZERO);
+            menuMusic.play();
         }
     }
 
+    /**
+     * Phát nhạc nền gameplay dựa trên level.
+     * - lv 1-6: backgroundmusic_lv1_lv6.wav (loop)
+     * - lv 7-10: backgroundmusic_lv7_lv10_p1.wav (no loop) -> auto p2 (loop)
+     */
+    public void playGameplayMusic(int level) {
+        stopAllBackgroundMusic();
+        if (!soundEnabled) return;
+
+        if (level >= 1 && level <= 6) {
+            if (gameplayLowMusic != null) {
+                gameplayLowMusic.seek(javafx.util.Duration.ZERO);
+                gameplayLowMusic.play();
+            }
+        } else if (level >= 7 && level <= 10) {
+            if (gameplayHighP1 != null) {
+                gameplayHighP1.seek(javafx.util.Duration.ZERO);
+                gameplayHighP1.play();
+            }
+        }
+    }
+
+    /**
+     * Dừng toàn bộ nhạc nền.
+     */
+    public void stopAllBackgroundMusic() {
+        if (menuMusic != null) menuMusic.stop();
+        if (gameplayLowMusic != null) gameplayLowMusic.stop();
+        if (gameplayHighP1 != null) gameplayHighP1.stop();
+        if (gameplayHighP2 != null) gameplayHighP2.stop();
+    }
+
+    // Legacy API compatibility
+    public void startBackgroundMusic() {
+        playMenuMusic();
+    }
+
     public void stopBackgroundMusic() {
-        if (backgroundMusic != null) backgroundMusic.stop();
+        stopAllBackgroundMusic();
     }
 
     public void setSoundEnabled(boolean enabled) {
         this.soundEnabled = enabled;
-        if (!enabled && backgroundMusic != null) {
-            backgroundMusic.stop();
+        if (!enabled) {
+            stopAllBackgroundMusic();
         }
     }
+
     public void playMove() {}
 }

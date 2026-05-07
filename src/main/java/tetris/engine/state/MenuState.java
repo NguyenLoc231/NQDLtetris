@@ -7,7 +7,7 @@ import tetris.engine.GameRenderer;
 public class MenuState implements GameState {
     @Override
     public void enter(GameEngine engine) {
-        // No-op.
+        engine.getSoundManager().playMenuMusic();
     }
 
     @Override
