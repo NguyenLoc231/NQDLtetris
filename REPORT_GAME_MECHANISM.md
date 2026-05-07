@@ -4,13 +4,13 @@
 **[VN]** Game được tổ chức theo hướng tách 3 lớp (MVC):
 - `model`: Dữ liệu game (`Board`, `Tetromino`, `TetrominoFactory`)
 - `engine`: Logic và State Machine (`GameEngine`, các `GameState`)
-- `ui`: Trình xuất hình ảnh (Render) và xử lý đầu vào (Input) bằng JavaFX (`TetrisFxAppExample`, `BoardRenderer`, `HoldPanelRenderer`)
+- `ui`: Trình xuất hình ảnh (Render) và xử lý đầu vào (Input) bằng JavaFX (`TetrisFxApp`, `BoardRenderer`, `HoldPanelRenderer`)
 *Mục tiêu:* Model không phụ thuộc UI; Engine không phụ thuộc JavaFX; UI chỉ làm việc hiển thị và chuyển input thành `GameAction`.
 
 **[EN]** The game is structured into 3 distinct layers (MVC):
 - `model`: Game data (`Board`, `Tetromino`, `TetrominoFactory`)
 - `engine`: Logic and State Machine (`GameEngine`, `GameState` classes)
-- `ui`: JavaFX rendering and input handling (`TetrisFxAppExample`, `BoardRenderer`, `HoldPanelRenderer`)
+- `ui`: JavaFX rendering and input handling (`TetrisFxApp`, `BoardRenderer`, `HoldPanelRenderer`)
 *Objective:* The Model is UI-independent; the Engine is JavaFX-independent; the UI strictly handles rendering and mapping inputs to `GameAction`.
 
 ## 2) Vòng đời chạy game / Game Lifecycle

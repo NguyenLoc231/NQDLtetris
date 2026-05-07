@@ -18,7 +18,7 @@
         <app.version>1.0.0</app.version>
         <app.winMenuGroup>Tetris</app.winMenuGroup>
         <app.winIcon>${project.basedir}/src/main/resources/packaging/tetris.ico</app.winIcon>
-        <app.mainClass>tetris.ui.TetrisFxAppExample</app.mainClass>
+        <app.mainClass>tetris.ui.TetrisFxApp</app.mainClass>
         <app.jvmArgs></app.jvmArgs>
     </properties>
 
